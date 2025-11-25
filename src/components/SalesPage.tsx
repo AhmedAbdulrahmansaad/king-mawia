@@ -47,13 +47,32 @@ export function SalesPage({ user }: SalesPageProps) {
 
   useEffect(() => {
     loadSales();
+    
+    // الاستماع لتحديثات المبيعات من المساعد الذكي
+    const handleSalesUpdate = () => {
+      console.log('🔔 تم استقبال تحديث المبيعات من المساعد الذكي');
+      console.log('🔄 جاري تحديث قائمة المبيعات...');
+      loadSales();
+    };
+    
+    window.addEventListener('salesUpdated', handleSalesUpdate);
+    console.log('✅ تم تفعيل المستمع لـ salesUpdated Event');
+    
+    return () => {
+      window.removeEventListener('salesUpdated', handleSalesUpdate);
+      console.log('❌ تم إلغاء المستمع لـ salesUpdated Event');
+    };
   }, []);
 
   const loadSales = async () => {
     try {
+      console.log('📥 جاري تحميل المبيعات من السيرفر...');
       const data = await getSales();
+      console.log('✅ تم تحميل المبيعات:', data.sales.length, 'عملية');
+      console.log('📊 البيانات:', data.sales);
       setSales(data.sales);
     } catch (error: any) {
+      console.error('❌ فشل تحميل المبيعات:', error);
       toast.error('❌ فشل تحميل المبيعات');
     } finally {
       setLoading(false);

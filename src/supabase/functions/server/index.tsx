@@ -366,28 +366,82 @@ app.put('/make-server-06efd250/sales/:id', async (c) => {
   }
 });
 
+// ============================================================
+// DELETE ROUTES (ADMIN ONLY)
+// ============================================================
+
+// Delete sale by ID (Admin only)
 app.delete('/make-server-06efd250/sales/:id', async (c) => {
   try {
     const user = await verifyAuth(c.req.raw);
     if (!user) return c.json({ error: 'Unauthorized' }, 401);
-
+    
     // Check if user is admin
     const userData = await kv.get(`user:${user.id}`);
     if (!userData || userData.role !== 'admin') {
       return c.json({ error: 'Access denied. Admin only.' }, 403);
     }
 
-    let id = c.req.param('id');
-    // Ensure ID has the correct prefix
-    if (!id.startsWith('sale:')) {
-      id = `sale:${id}`;
-    }
+    const saleId = c.req.param('id');
+    const sale = await kv.get(saleId);
     
-    await kv.del(id);
+    if (!sale) {
+      return c.json({ error: 'Sale not found' }, 404);
+    }
 
-    return c.json({ success: true });
+    // Delete the sale
+    await kv.del(saleId);
+    
+    // Delete related debt if exists
+    const allDebts = await kv.getByPrefix('debt:');
+    const relatedDebt = allDebts.find((d: any) => d.sale_id === saleId);
+    if (relatedDebt) {
+      await kv.del(relatedDebt.id);
+    }
+
+    return c.json({ success: true, message: 'Sale deleted successfully' });
   } catch (error: any) {
     console.error('Delete sale error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Delete all sales for a customer (Admin only)
+app.delete('/make-server-06efd250/customers/:customerName/sales', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+    
+    // Check if user is admin
+    const userData = await kv.get(`user:${user.id}`);
+    if (!userData || userData.role !== 'admin') {
+      return c.json({ error: 'Access denied. Admin only.' }, 403);
+    }
+
+    const customerName = decodeURIComponent(c.req.param('customerName'));
+    
+    // Delete all sales for this customer
+    const allSales = await kv.getByPrefix('sale:');
+    let deletedCount = 0;
+    
+    for (const sale of allSales) {
+      if (sale.customer_name === customerName || sale.customerName === customerName) {
+        await kv.del(sale.id);
+        deletedCount++;
+      }
+    }
+    
+    // Delete all debts for this customer
+    const allDebts = await kv.getByPrefix('debt:');
+    for (const debt of allDebts) {
+      if (debt.customer_name === customerName || debt.customerName === customerName) {
+        await kv.del(debt.id);
+      }
+    }
+
+    return c.json({ success: true, deletedCount, message: 'Customer data deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete customer sales error:', error);
     return c.json({ error: error.message }, 500);
   }
 });
@@ -501,28 +555,29 @@ app.put('/make-server-06efd250/debts/:id', async (c) => {
   }
 });
 
-// Delete debt
+// Delete debt by ID (Admin only)
 app.delete('/make-server-06efd250/debts/:id', async (c) => {
   try {
     const user = await verifyAuth(c.req.raw);
     if (!user) return c.json({ error: 'Unauthorized' }, 401);
-
+    
     // Check if user is admin
     const userData = await kv.get(`user:${user.id}`);
     if (!userData || userData.role !== 'admin') {
       return c.json({ error: 'Access denied. Admin only.' }, 403);
     }
 
-    let debtId = c.req.param('id');
-
-    // Ensure debtId has the correct prefix
-    if (!debtId.startsWith('debt:')) {
-      debtId = `debt:${debtId}`;
+    const debtId = c.req.param('id');
+    const debt = await kv.get(debtId);
+    
+    if (!debt) {
+      return c.json({ error: 'Debt not found' }, 404);
     }
 
+    // Delete the debt
     await kv.del(debtId);
 
-    return c.json({ success: true });
+    return c.json({ success: true, message: 'Debt deleted successfully' });
   } catch (error: any) {
     console.error('Delete debt error:', error);
     return c.json({ error: error.message }, 500);
@@ -587,6 +642,45 @@ app.post('/make-server-06efd250/debts/:id/payment', async (c) => {
     return c.json({ success: true, debt: updatedDebt });
   } catch (error: any) {
     console.error('Record payment error:', error);
+    return c.json({ error: error.message }, 500);
+  }
+});
+
+// Delete product sales report (Admin only)
+app.delete('/make-server-06efd250/products/:productName/sales', async (c) => {
+  try {
+    const user = await verifyAuth(c.req.raw);
+    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+    
+    // Check if user is admin
+    const userData = await kv.get(`user:${user.id}`);
+    if (!userData || userData.role !== 'admin') {
+      return c.json({ error: 'Access denied. Admin only.' }, 403);
+    }
+
+    const productName = decodeURIComponent(c.req.param('productName'));
+    
+    // Delete all sales for this product
+    const allSales = await kv.getByPrefix('sale:');
+    let deletedCount = 0;
+    
+    for (const sale of allSales) {
+      if (sale.product_name === productName || sale.type === productName) {
+        await kv.del(sale.id);
+        deletedCount++;
+        
+        // Delete related debt if exists
+        const allDebts = await kv.getByPrefix('debt:');
+        const relatedDebt = allDebts.find((d: any) => d.sale_id === sale.id);
+        if (relatedDebt) {
+          await kv.del(relatedDebt.id);
+        }
+      }
+    }
+
+    return c.json({ success: true, deletedCount, message: 'Product sales deleted successfully' });
+  } catch (error: any) {
+    console.error('Delete product sales error:', error);
     return c.json({ error: error.message }, 500);
   }
 });
@@ -967,15 +1061,27 @@ app.get('/make-server-06efd250/health', (c) => {
 
 app.post('/make-server-06efd250/assistant', async (c) => {
   try {
+    console.log('🎯 [ASSISTANT] تلقي طلب جديد');
     const user = await verifyAuth(c.req.raw);
-    if (!user) return c.json({ error: 'Unauthorized' }, 401);
+    if (!user) {
+      console.log('❌ [ASSISTANT] غير مصرح');
+      return c.json({ error: 'Unauthorized' }, 401);
+    }
 
+    console.log('✅ [ASSISTANT] مصرح:', user.id);
     const body = await c.req.json();
+    console.log('📥 [ASSISTANT] البيانات المستلمة:', JSON.stringify(body).substring(0, 200));
+    
     const result = await processAssistantRequest({ ...body, userId: user.id });
+    console.log('✅ [ASSISTANT] النتيجة:', result.success ? 'نجح' : 'فشل');
+    
+    if (result.data) {
+      console.log('💾 [ASSISTANT] البيانات المحفوظة:', result.data.id);
+    }
 
     return c.json(result);
   } catch (error: any) {
-    console.error('Smart Assistant error:', error);
+    console.error('❌ [ASSISTANT] خطأ:', error);
     return c.json({ 
       success: false, 
       error: error.message || 'حدث خطأ في المساعد الذكي'

@@ -33,9 +33,21 @@ export function DebtsPage({ user }: any) {
     loadDebts();
     updateDateTime();
     
-    // Update time every minute
+    // الاستماع لتحديثات الديون من المساعد الذكي
+    const handleDebtsUpdate = () => {
+      console.log('تم استقبال تحديث الديون من المساعد الذكي');
+      loadDebts();
+    };
+    
+    window.addEventListener('debtsUpdated', handleDebtsUpdate);
+    
+    // Update date/time every minute
     const interval = setInterval(updateDateTime, 60000);
-    return () => clearInterval(interval);
+    
+    return () => {
+      window.removeEventListener('debtsUpdated', handleDebtsUpdate);
+      clearInterval(interval);
+    };
   }, []);
 
   const updateDateTime = () => {

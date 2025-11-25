@@ -1,5 +1,5 @@
 /**
- * المساعد الذكي المتقدم - نظام ملك المavia
+ * المساعد الذكي المتقدم - نظام ملك المائية
  * 
  * الميزات:
  * ✓ تحليل الصور (رفع صورة من الدفتر)
@@ -50,7 +50,7 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
     {
       id: '1',
       type: 'assistant',
-      content: '👋 مرحباً! أنا المساعد الذكي لنظام ملك المavia.\n\n⚠️ **تنبيه هام:**\nلاستخدام المساعد الذكي، تحتاج إلى:\n\n1️⃣ **إضافة OpenAI API Key:**\n   • اذهب إلى: https://platform.openai.com/api-keys\n   • أنشئ مفتاح API جديد\n   • أضفه في إعدادات Supabase (متغير OPENAI_API_KEY)\n\n2️⃣ **تفعيل الدفع في OpenAI:**\n   • اذهب إلى: https://platform.openai.com/settings/organization/billing\n   • أضف بطاقة ائتمان\n   • أضف رصيد ($5 كافي للبداية)\n\n💡 **البدائل:**\n   • استخدم نظام المبيعات العادي (بدون AI)\n   • أدخل البيانات يدوياً من صفحة المبيعات\n   • استخدم التقارير المدمجة\n\nكيف يمكنني مساعدتك؟',
+      content: '👋 مرحباً! أنا المساعد الذكي لنظام ملك المائية.\n\n✨ **الميزات المتاحة:**\n\n📸 **تحليل الصور:**\n   • ارفع صورة من دفتر المبيعات\n   • سأقوم بتحليلها واستخراج البيانات تلقائياً\n   • سأضيف المبيعات مباشرة إلى النظام\n\n💬 **أوامر ذكية:**\n   • \"أعطني تقرير مبيعات اليوم\"\n   • \"كم إجمالي الديون؟\"\n   • \"ما هي أفضل المنتجات مبيعاً؟\"\n   • \"سجل بيع طوفان 3 حبات بـ 15000 ريال\"\n   • \"ابحث عن معلومات العميل أحمد\"\n   • \"كشف حساب محمد\"\n   • وأي سؤال آخر عن نظامك\n\n📊 **الوصول الكامل للبيانات:**\n   • لدي وصول كامل لجميع المبيعات والديون\n   • أستطيع تحليل الأداء وإعطاء توصيات\n   • أقدم إحصائيات دقيقة ومفصلة\n\nكيف يمكنني مساعدتك اليوم؟',
       timestamp: new Date(),
     }
   ]);
@@ -125,95 +125,12 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
         requestBody.imageBase64 = selectedImage;
       }
 
-      // استخدام Vercel API في Production، Supabase Edge Function في Development
-      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-      
-      // في Development، نستخدم وضع Demo بدون OpenAI
-      if (!isProduction) {
-        // Demo response for development
-        const demoResponse = selectedImage 
-          ? {
-              success: true,
-              extracted: {
-                items: [
-                  { type: 'طوفان', quantity: 2, unit_price: 5000, total: 10000, customerName: 'عميل تجريبي', note: 'بيانات تجريبية من وضع Development' }
-                ],
-                summary: { total_sales: 10000, by_type: { 'طوفان': 10000 } },
-                notes: 'هذه بيانات تجريبية. في Production، سيتم استخدام OpenAI لتحليل الصور الحقيقية.'
-              },
-              insertedCount: 1,
-              reply: '✨ وضع Development - بيانات تجريبية\n\n⚠️ للحصول على تحليل حقيقي، قم بنشر المشروع على Vercel وأضف OPENAI_API_KEY في Environment Variables.'
-            }
-          : {
-              success: true,
-              reply: '✨ وضع Development - مساعد تجريبي\n\n🔹 ' + input + '\n\n⚠️ في Production، سيتم استخدام OpenAI GPT-4 للإجابة على أسئلتك بشكل ذكي.\n\n💡 قم بنشر المشروع على Vercel للحصول على الميزات الكاملة!'
-            };
-        
-        // Simulate network delay
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        const data = demoResponse;
-        
-        let assistantContent = '';
-        
-        if (data.success) {
-          if (selectedImage) {
-            // Image analysis response
-            assistantContent = `✅ تم تحليل الصورة بنجاح! (وضع تجريبي)\n\n`;
-            
-            if (data.extracted?.items?.length > 0) {
-              assistantContent += `📦 تم استخراج ${data.insertedCount} عملية مبيعات:\n\n`;
-              
-              data.extracted.items.forEach((item: any, index: number) => {
-                assistantContent += `${index + 1}. ${item.type}\n`;
-                assistantContent += `   الكمية: ${item.quantity}\n`;
-                assistantContent += `   السعر: ${item.unit_price.toLocaleString('ar-YE')} ريال\n`;
-                assistantContent += `   الإجمالي: ${item.total.toLocaleString('ar-YE')} ريال\n`;
-                if (item.customerName) {
-                  assistantContent += `   الزبون: ${item.customerName}\n`;
-                }
-                assistantContent += `\n`;
-              });
-
-              if (data.extracted.summary) {
-                assistantContent += `\n💰 الإجمالي الكلي: ${data.extracted.summary.total_sales.toLocaleString('ar-YE')} ريال يمني\n`;
-              }
-              
-              if (data.extracted.notes) {
-                assistantContent += `\n⚠️ ${data.extracted.notes}\n`;
-              }
-            }
-          } else if (data.reply) {
-            // Text response
-            assistantContent = data.reply;
-          }
-        }
-
-        const assistantMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          type: 'assistant',
-          content: assistantContent,
-          timestamp: new Date(),
-          data: data,
-        };
-
-        setMessages(prev => [...prev, assistantMessage]);
-        
-        if (selectedImage) {
-          removeImage();
-          toast.success('✅ تم تحليل الصورة (وضع تجريبي)');
-        }
-
-        setTimeout(scrollToBottom, 100);
-        setLoading(false);
-        return;
-      }
-      
-      // Production mode - use Vercel API
-      const apiUrl = '/api/smart-assistant';
+      // استخدام Supabase Edge Function
+      const apiUrl = `https://${projectId}.supabase.co/functions/v1/make-server-06efd250/assistant`;
       
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       };
 
       const response = await fetch(apiUrl, {
@@ -287,6 +204,29 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
       if (selectedImage) {
         removeImage();
         toast.success('✅ تم حفظ البيانات بنجاح!');
+        
+        // تحديث جميع الصفحات
+        console.log('🔄 إرسال Custom Event: salesUpdated');
+        window.dispatchEvent(new CustomEvent('salesUpdated'));
+        console.log('🔄 إرسال Custom Event: debtsUpdated');
+        window.dispatchEvent(new CustomEvent('debtsUpdated'));
+        console.log('🔄 إرسال Custom Event: notificationsUpdated');
+        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+      } else if (data.data) {
+        // عند تسجيل بيع من النص
+        console.log('✅ تم تسجيل بيع من النص:', data.data);
+        toast.success('✅ تم حفظ البيانات بنجاح!');
+        
+        // تحديث جميع الصفحات
+        console.log('🔄 إرسال Custom Event: salesUpdated');
+        window.dispatchEvent(new CustomEvent('salesUpdated'));
+        console.log('🔄 إرسال Custom Event: notificationsUpdated');
+        window.dispatchEvent(new CustomEvent('notificationsUpdated'));
+        
+        if (data.data.paymentStatus === 'pending') {
+          console.log('🔄 إرسال Custom Event: debtsUpdated');
+          window.dispatchEvent(new CustomEvent('debtsUpdated'));
+        }
       }
 
       setTimeout(scrollToBottom, 100);
@@ -294,10 +234,29 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
     } catch (error: any) {
       console.error('Assistant error:', error);
       
+      let errorContent = `❌ عذراً، حدث خطأ: ${error.message}\n\n`;
+      
+      // Check if it's an OpenAI API key issue
+      if (error.message.includes('quota') || error.message.includes('API') || error.message.includes('نفد رصيد')) {
+        errorContent += `⚠️ **مشكلة في OpenAI API**\n\n`;
+        errorContent += `للحل:\n`;
+        errorContent += `1. تأكد من إضافة OPENAI_API_KEY في Supabase Environment Variables\n`;
+        errorContent += `2. تأكد من وجود رصيد كافي في حساب OpenAI\n`;
+        errorContent += `3. قم بزيارة: https://platform.openai.com/account/billing\n\n`;
+        errorContent += `💡 **بديل:** استخدم صفحة المبيعات لإدخال البيانات يدوياً`;
+      } else {
+        errorContent += `تأكد من:\n`;
+        errorContent += `- الاتصال بالإنترنت\n`;
+        errorContent += `- صلاحيات الوصول\n`;
+        if (selectedImage) {
+          errorContent += `- جودة الصورة ووضوحها`;
+        }
+      }
+      
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'assistant',
-        content: `❌ عذراً، حدث خطأ: ${error.message}\n\nتأكد من:\n- الاتصال بالإنترنت\n- صلاحيات الوصول\n- جودة الصورة`,
+        content: errorContent,
         timestamp: new Date(),
       };
 
@@ -324,6 +283,10 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
     {
       label: '🎯 أفضل المنتجات',
       action: () => setInput('ما هي أفضل المنتجات مبيعاً؟'),
+    },
+    {
+      label: '👥 أفضل العملاء',
+      action: () => setInput('من هم أفضل 5 عملاء؟'),
     },
   ];
 
@@ -501,7 +464,7 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
               </div>
               <div className="flex items-center gap-1">
                 <CheckCircle2 className="h-3 w-3 text-green-600" />
-                <span>إدارة ذكة</span>
+                <span>إدارة ذكية</span>
               </div>
             </div>
           </div>

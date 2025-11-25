@@ -3,9 +3,9 @@ import { motion } from 'motion/react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
-import { Users, Search, FileText, Download, Printer, FileSpreadsheet, FileType } from 'lucide-react';
+import { Users, Search, FileText, Download, Printer, FileSpreadsheet, FileType, Trash2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
 import { getCustomers, getCustomerStatement } from '../utils/api';
 import { Skeleton } from './ui/skeleton';
@@ -22,6 +22,10 @@ export function CustomersStatements({ user }: CustomersStatementsProps) {
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
   const [statementLoading, setStatementLoading] = useState(false);
   const [statement, setStatement] = useState<any>(null);
+  const [deletingStatement, setDeletingStatement] = useState(false);
+
+  // Check if user is admin
+  const isAdmin = user?.role === 'admin';
 
   useEffect(() => {
     loadCustomers();
@@ -205,6 +209,53 @@ export function CustomersStatements({ user }: CustomersStatementsProps) {
     }
   };
 
+  const handleDeleteCustomerData = async (customerName: string) => {
+    if (!isAdmin) {
+      toast.error('❌ غير مصرح لك بالحذف - صلاحيات المدير فقط');
+      return;
+    }
+
+    if (!confirm(`⚠️ تحذير!\n\nهل أنت متأكد من حذف جميع بيانات العميل "${customerName}"؟\n\nسيتم حذف:\n• جميع المبيعات\n• جميع الديون\n• جميع السجلات المرتبطة\n\n⛔ لا يمكن التراجع عن هذا الإجراء!`)) {
+      return;
+    }
+
+    try {
+      setDeletingStatement(true);
+      
+      const { projectId, publicAnonKey } = await import('../utils/supabase/info.tsx');
+      
+      const response = await fetch(
+        `https://${projectId}.supabase.co/functions/v1/make-server-06efd250/customers/${encodeURIComponent(customerName)}/sales`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${publicAnonKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'فشل الحذف');
+      }
+
+      const result = await response.json();
+      
+      toast.success(`✅ تم حذف بيانات العميل "${customerName}" بنجاح!\n🗑️ تم حذف ${result.deletedCount} سجل`);
+      
+      // إعادة تحميل القائمة
+      await loadCustomers();
+      setSelectedCustomer(null);
+      setStatement(null);
+    } catch (error: any) {
+      console.error('Delete customer data error:', error);
+      toast.error(`❌ فشل حذف بيانات العميل: ${error.message}`);
+    } finally {
+      setDeletingStatement(false);
+    }
+  };
+
   const filteredCustomers = customers.filter(customer =>
     customer.name?.includes(searchQuery)
   );
@@ -379,6 +430,17 @@ export function CustomersStatements({ user }: CustomersStatementsProps) {
                   <FileType className="ml-2 h-4 w-4" />
                   Word
                 </Button>
+                {isAdmin && (
+                  <Button
+                    onClick={() => handleDeleteCustomerData(selectedCustomer.name)}
+                    variant="outline"
+                    size="sm"
+                    className="text-red-600"
+                  >
+                    <Trash2 className="ml-2 h-4 w-4" />
+                    حذف بيانات العميل
+                  </Button>
+                )}
               </div>
 
               {/* Sales Table */}
