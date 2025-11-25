@@ -50,7 +50,7 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
     {
       id: '1',
       type: 'assistant',
-      content: '👋 مرحباً! أنا المساعد الذكي لنظام ملك الماوية.\n\n⚠️ **تنبيه هام:**\nلاستخدام المساعد الذكي، تحتاج إلى:\n\n1️⃣ **إضافة OpenAI API Key:**\n   • اذهب إلى: https://platform.openai.com/api-keys\n   • أنشئ مفتاح API جديد\n   • أضفه في إعدادات Supabase (متغير OPENAI_API_KEY)\n\n2️⃣ **تفعيل الدفع في OpenAI:**\n   • اذهب إلى: https://platform.openai.com/settings/organization/billing\n   • أضف بطاقة ائتمان\n   • أضف رصيد ($5 كافي للبداية)\n\n💡 **البدائل:**\n   • استخدم نظام المبيعات العادي (بدون AI)\n   • أدخل البيانات يدوياً من صفحة المبيعات\n   • استخدم التقارير المدمجة\n\nكيف يمكنني مساعدتك؟',
+      content: '👋 مرحباً! أنا المساعد الذكي لنظام ملك المavia.\n\n⚠️ **تنبيه هام:**\nلاستخدام المساعد الذكي، تحتاج إلى:\n\n1️⃣ **إضافة OpenAI API Key:**\n   • اذهب إلى: https://platform.openai.com/api-keys\n   • أنشئ مفتاح API جديد\n   • أضفه في إعدادات Supabase (متغير OPENAI_API_KEY)\n\n2️⃣ **تفعيل الدفع في OpenAI:**\n   • اذهب إلى: https://platform.openai.com/settings/organization/billing\n   • أضف بطاقة ائتمان\n   • أضف رصيد ($5 كافي للبداية)\n\n💡 **البدائل:**\n   • استخدم نظام المبيعات العادي (بدون AI)\n   • أدخل البيانات يدوياً من صفحة المبيعات\n   • استخدم التقارير المدمجة\n\nكيف يمكنني مساعدتك؟',
       timestamp: new Date(),
     }
   ]);
@@ -118,19 +118,20 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
       let requestBody: any = {
         mode: selectedImage ? 'image' : 'text',
         text: input || 'حلل هذه الصورة واستخرج بيانات المبيعات',
+        userId: user.id,
       };
 
       if (selectedImage) {
         requestBody.imageBase64 = selectedImage;
       }
 
+      // استخدام Vercel API بدلاً من Supabase Edge Function
       const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-06efd250/assistant`,
+        '/api/smart-assistant',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
           },
           body: JSON.stringify(requestBody),
         }
