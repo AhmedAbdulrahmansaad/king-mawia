@@ -1,35 +1,23 @@
-/**
- * ---------------------------------------------------------
- *  SMART ASSISTANT API — FULL VERSION (ARABIC + COMMENTS)
- * ---------------------------------------------------------
- *
- * هذا الملف كامل يرسل للمصمم كما هو.
- * يحتوي:
- * ✓ المساعد الذكي
- * ✓ رفع صور إلى Supabase Storage
- * ✓ تحليل الصور (Vision)
- * ✓ استخراج بيانات المبيعات
- * ✓ إدخال البيانات في Supabase
- * ✓ أوامر الديون
- * ✓ أوامر التقارير (يومي + شهري)
- * ✓ رد نصّي
- * ✓ كل شيء مكتوب بالعربي ومشروح
- *
- * ---------------------------------------------------------
- */
+// ---------------------------------------------------------
+// SMART ASSISTANT API — VERCEL EDGE VERSION
+// ---------------------------------------------------------
 
-import { createClient } from '@supabase/supabase-js';
-import OpenAI from 'openai';
+export const config = {
+  runtime: "edge",
+};
+
+import { createClient } from "@supabase/supabase-js";
+import OpenAI from "openai";
 
 // ---------------------------------------------------------
-// (1) تهيئة OpenAI
+// 1) تهيئة OpenAI
 // ---------------------------------------------------------
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
 // ---------------------------------------------------------
-// (2) تهيئة Supabase SERVICE ROLE
+// 2) تهيئة Supabase (بمفتاح SERVICE ROLE)
 // ---------------------------------------------------------
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -37,7 +25,7 @@ const supabase = createClient(
 );
 
 // ---------------------------------------------------------
-// (3) رفع صورة إلى Supabase Storage
+// 3) رفع صورة إلى Storage
 // ---------------------------------------------------------
 async function uploadImageToSupabase(base64, userId) {
   const fileName = `assistant/${userId}_${Date.now()}.jpg`;
@@ -49,17 +37,15 @@ async function uploadImageToSupabase(base64, userId) {
       upsert: true,
     });
 
-  if (error) throw new Error("فشل رفع الصورة إلى التخزين");
+  if (error) throw new Error("فشل رفع الصورة إلى Supabase");
 
-  const { data: urlInfo } = supabase.storage
-    .from("uploads")
-    .getPublicUrl(fileName);
+  const { data } = supabase.storage.from("uploads").getPublicUrl(fileName);
 
-  return urlInfo.publicUrl;
+  return data.publicUrl;
 }
 
 // ---------------------------------------------------------
-// (4) تحليل صورة باستخدام OpenAI Vision
+// 4) تحليل الصور — Vision
 // ---------------------------------------------------------
 async function analyzeImage(imageUrl, instruction = "") {
   const completion = await openai.chat.completions.create({
@@ -69,14 +55,13 @@ async function analyzeImage(imageUrl, instruction = "") {
       {
         role: "system",
         content: `
-أنت مساعد ذكي متخصص في قراءة الصور التي تحتوي على مبيعات وعمليات مالية.
-اخرج JSON منظم:
+أنت مساعد ذكاء اصطناعي متخصص في قراءة صور المبيعات والفواتير.
+أرجع JSON بالصيغة التالية:
 {
   "items": [
-    { "type": "", "quantity": 0, "unit_price": 0, "total": 0, "customerName": "", "note": "" }
+    { "type": "", "quantity": 0, "unit_price": 0, "total": 0 }
   ],
-  "summary": { "total_sales": 0, "by_type": {} },
-  "notes": ""
+  "summary": { "total_sales": 0 }
 }
 `
       },
@@ -85,7 +70,7 @@ async function analyzeImage(imageUrl, instruction = "") {
         content: [
           { type: "text", text: instruction },
           { type: "image_url", image_url: { url: imageUrl } }
-        ]
+        ],
       }
     ]
   });
@@ -94,7 +79,7 @@ async function analyzeImage(imageUrl, instruction = "") {
 }
 
 // ---------------------------------------------------------
-// (5) إدخال بيانات المبيعات داخل جدول sales
+// 5) حفظ بيانات المبيعات
 // ---------------------------------------------------------
 async function insertSales(items, userId) {
   const formatted = items.map((x) => ({
@@ -102,9 +87,7 @@ async function insertSales(items, userId) {
     quantity: x.quantity,
     unit_price: x.unit_price,
     total_price: x.total,
-    customer_name: x.customerName || null,
-    notes: x.note || null,
-    seller_id: userId || null,
+    seller_id: userId,
     source: "image",
   }));
 
@@ -118,17 +101,17 @@ async function insertSales(items, userId) {
 }
 
 // ---------------------------------------------------------
-// (6) إضافة دين جديد
+// 6) إضافة دين جديد
 // ---------------------------------------------------------
-async function addDebt({ customer, amount, note, due_date }) {
+async function addDebt(payload) {
   const { data, error } = await supabase
     .from("debts")
     .insert({
-      customer_name: customer,
-      amount,
-      notes: note || null,
+      customer_name: payload.customer,
+      amount: payload.amount,
+      notes: payload.note || "",
+      due_date: payload.due_date,
       status: "unpaid",
-      due_date,
     })
     .select("*")
     .single();
@@ -138,7 +121,7 @@ async function addDebt({ customer, amount, note, due_date }) {
 }
 
 // ---------------------------------------------------------
-// (7) تحديث دين إلى "مدفوع"
+// 7) تحديث دين إلى مدفوع
 // ---------------------------------------------------------
 async function markDebtPaid(id) {
   const { data, error } = await supabase
@@ -153,115 +136,71 @@ async function markDebtPaid(id) {
 }
 
 // ---------------------------------------------------------
-// (8) تقرير يومي
-// ---------------------------------------------------------
-async function dailyReport() {
-  const today = new Date().toISOString().split("T")[0];
-
-  const { data, error } = await supabase
-    .from("sales")
-    .select("*")
-    .gte("created_at", `${today} 00:00:00`)
-    .lte("created_at", `${today} 23:59:59`);
-
-  if (error) throw new Error(error.message);
-
-  const total = data.reduce((sum, i) => sum + i.total_price, 0);
-  return { total, items: data };
-}
-
-// ---------------------------------------------------------
-// (9) تقرير شهري
-// ---------------------------------------------------------
-async function monthlyReport(year, month) {
-  const start = `${year}-${String(month).padStart(2, "0")}-01`;
-  const end = new Date(year, month, 0).getDate();
-  const last = `${year}-${String(month).padStart(2, "0")}-${end}`;
-
-  const { data, error } = await supabase
-    .from("sales")
-    .select("*")
-    .gte("created_at", `${start} 00:00:00`)
-    .lte("created_at", `${last} 23:59:59`);
-
-  if (error) throw new Error(error.message);
-
-  const total = data.reduce((sum, i) => sum + i.total_price, 0);
-  return { total, items: data };
-}
-
-// ---------------------------------------------------------
-// (10) رد نصي بدون صور
+// 8) رد نصّي فقط
 // ---------------------------------------------------------
 async function handleText(text) {
   const completion = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     messages: [
-      {
-        role: "system",
-        content: `أنت مساعد ذكي داخل نظام مبيعات وديون.`
-      },
-      { role: "user", content: text }
-    ]
+      { role: "system", content: "أنت مساعد ذكي لإدارة المبيعات والديون." },
+      { role: "user", content: text },
+    ],
   });
 
   return completion.choices[0].message.content;
 }
 
 // ---------------------------------------------------------
-// (11) API الرئيسي — يستقبل الطلبات من الواجهة
+// 9) دالة API الرئيسية
 // ---------------------------------------------------------
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "فقط POST مسموح" });
-  }
-
+export default async function handler(req) {
   try {
-    const { mode, text, imageBase64, userId, command, payload } = req.body;
+    const body = await req.json();
+    const { mode, text, imageBase64, userId, command, payload } = body;
 
-    // -------- TEXT --------
+    // TEXT MODE
     if (mode === "text") {
       const reply = await handleText(text);
-      return res.status(200).json({ success: true, reply });
+      return json({ success: true, reply });
     }
 
-    // -------- IMAGE --------
+    // IMAGE MODE
     if (mode === "image") {
       const url = await uploadImageToSupabase(imageBase64, userId);
       const extracted = await analyzeImage(url, text);
       const saved = await insertSales(extracted.items, userId);
 
-      return res.status(200).json({
+      return json({
         success: true,
         extracted,
-        insertedCount: saved.length,
-        reply: "تم تحليل الصورة وحفظ العمليات."
+        saved,
+        reply: "تم تحليل الصورة وحفظ العمليات.",
       });
     }
 
-    // -------- COMMAND MODE --------
+    // COMMANDS
     if (mode === "command") {
       switch (command) {
         case "addDebt":
-          return res.status(200).json({ success: true, result: await addDebt(payload) });
+          return json({ success: true, result: await addDebt(payload) });
 
         case "markDebtPaid":
-          return res.status(200).json({ success: true, result: await markDebtPaid(payload.id) });
-
-        case "dailyReport":
-          return res.status(200).json({ success: true, result: await dailyReport() });
-
-        case "monthlyReport":
-          return res.status(200).json({ success: true, result: await monthlyReport(payload.year, payload.month) });
-
-        default:
-          return res.status(400).json({ error: "أمر غير معروف" });
+          return json({ success: true, result: await markDebtPaid(payload.id) });
       }
     }
 
-    return res.status(400).json({ error: "Mode غير معروف" });
-
+    return json({ error: "Mode غير معروف" }, 400);
   } catch (err) {
-    return res.status(500).json({ success: false, error: err.message });
+    return json({ success: false, error: err.message }, 500);
   }
+}
+
+// ---------------------------------------------------------
+// (10) مساعد لإرجاع JSON لـ Vercel Edge
+// ---------------------------------------------------------
+function json(data, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
 }
