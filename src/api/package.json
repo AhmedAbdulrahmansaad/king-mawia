@@ -1,0 +1,10 @@
+{
+  "name": "king-mawia-api",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Smart Assistant API for King Mawia System",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "openai": "^4.20.0"
+  }
+}

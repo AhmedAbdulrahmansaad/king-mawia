@@ -125,17 +125,102 @@ export function SmartAssistant({ user }: SmartAssistantProps) {
         requestBody.imageBase64 = selectedImage;
       }
 
-      // استخدام Vercel API بدلاً من Supabase Edge Function
-      const response = await fetch(
-        '/api/smart-assistant',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
+      // استخدام Vercel API في Production، Supabase Edge Function في Development
+      const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+      
+      // في Development، نستخدم وضع Demo بدون OpenAI
+      if (!isProduction) {
+        // Demo response for development
+        const demoResponse = selectedImage 
+          ? {
+              success: true,
+              extracted: {
+                items: [
+                  { type: 'طوفان', quantity: 2, unit_price: 5000, total: 10000, customerName: 'عميل تجريبي', note: 'بيانات تجريبية من وضع Development' }
+                ],
+                summary: { total_sales: 10000, by_type: { 'طوفان': 10000 } },
+                notes: 'هذه بيانات تجريبية. في Production، سيتم استخدام OpenAI لتحليل الصور الحقيقية.'
+              },
+              insertedCount: 1,
+              reply: '✨ وضع Development - بيانات تجريبية\n\n⚠️ للحصول على تحليل حقيقي، قم بنشر المشروع على Vercel وأضف OPENAI_API_KEY في Environment Variables.'
+            }
+          : {
+              success: true,
+              reply: '✨ وضع Development - مساعد تجريبي\n\n🔹 ' + input + '\n\n⚠️ في Production، سيتم استخدام OpenAI GPT-4 للإجابة على أسئلتك بشكل ذكي.\n\n💡 قم بنشر المشروع على Vercel للحصول على الميزات الكاملة!'
+            };
+        
+        // Simulate network delay
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const data = demoResponse;
+        
+        let assistantContent = '';
+        
+        if (data.success) {
+          if (selectedImage) {
+            // Image analysis response
+            assistantContent = `✅ تم تحليل الصورة بنجاح! (وضع تجريبي)\n\n`;
+            
+            if (data.extracted?.items?.length > 0) {
+              assistantContent += `📦 تم استخراج ${data.insertedCount} عملية مبيعات:\n\n`;
+              
+              data.extracted.items.forEach((item: any, index: number) => {
+                assistantContent += `${index + 1}. ${item.type}\n`;
+                assistantContent += `   الكمية: ${item.quantity}\n`;
+                assistantContent += `   السعر: ${item.unit_price.toLocaleString('ar-YE')} ريال\n`;
+                assistantContent += `   الإجمالي: ${item.total.toLocaleString('ar-YE')} ريال\n`;
+                if (item.customerName) {
+                  assistantContent += `   الزبون: ${item.customerName}\n`;
+                }
+                assistantContent += `\n`;
+              });
+
+              if (data.extracted.summary) {
+                assistantContent += `\n💰 الإجمالي الكلي: ${data.extracted.summary.total_sales.toLocaleString('ar-YE')} ريال يمني\n`;
+              }
+              
+              if (data.extracted.notes) {
+                assistantContent += `\n⚠️ ${data.extracted.notes}\n`;
+              }
+            }
+          } else if (data.reply) {
+            // Text response
+            assistantContent = data.reply;
+          }
         }
-      );
+
+        const assistantMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          type: 'assistant',
+          content: assistantContent,
+          timestamp: new Date(),
+          data: data,
+        };
+
+        setMessages(prev => [...prev, assistantMessage]);
+        
+        if (selectedImage) {
+          removeImage();
+          toast.success('✅ تم تحليل الصورة (وضع تجريبي)');
+        }
+
+        setTimeout(scrollToBottom, 100);
+        setLoading(false);
+        return;
+      }
+      
+      // Production mode - use Vercel API
+      const apiUrl = '/api/smart-assistant';
+      
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(requestBody),
+      });
 
       const data = await response.json();
 
