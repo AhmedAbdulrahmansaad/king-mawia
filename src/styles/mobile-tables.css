@@ -1,0 +1,59 @@
+/* Mobile-responsive table styles for Arabic RTL */
+
+@media (max-width: 768px) {
+  /* Hide table headers on mobile */
+  .mobile-responsive-table thead {
+    display: none;
+  }
+
+  /* Stack table rows */
+  .mobile-responsive-table tbody,
+  .mobile-responsive-table tr {
+    display: block;
+    width: 100%;
+  }
+
+  /* Style table rows as cards */
+  .mobile-responsive-table tr {
+    margin-bottom: 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    background: white;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+  }
+
+  /* Style table cells */
+  .mobile-responsive-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border: none;
+    text-align: right;
+  }
+
+  .mobile-responsive-table td:not(:last-child) {
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  /* Add labels before content */
+  .mobile-responsive-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #6b7280;
+    margin-left: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  /* Hide empty cells */
+  .mobile-responsive-table td:empty {
+    display: none;
+  }
+}
+
+/* Ensure proper RTL for mobile tables */
+.mobile-responsive-table {
+  direction: rtl;
+  width: 100%;
+}
